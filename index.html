@@ -292,6 +292,15 @@
       </div>
     </div>
   </div>
+  <div class="control-group">
+    <label>Sort by</label>
+    <select id="sortOrder">
+      <option value="name">Name (A→Z)</option>
+      <option value="name-desc">Name (Z→A)</option>
+      <option value="latency">Avg latency (low→high)</option>
+      <option value="latency-desc">Avg latency (high→low)</option>
+    </select>
+  </div>
   <div class="legend">
     <span class="legend-item"><span class="legend-swatch" style="background:#1a5c2a"></span>&lt; 40</span>
     <span class="legend-item"><span class="legend-swatch" style="background:#5c5c1a"></span>40–99</span>
@@ -481,7 +490,16 @@ document.addEventListener('click', e => {
   }
 });
 
-function render(data, srcSet, destSet) {
+function avgLatency(row, destIndices) {
+  let sum = 0, count = 0;
+  for (const di of destIndices) {
+    const v = row.values[di];
+    if (v !== null) { sum += v; count++; }
+  }
+  return count > 0 ? sum / count : Infinity;
+}
+
+function render(data, srcSet, destSet, sortBy) {
   const { destinations, rows } = data;
 
   // Filter rows by source selection
@@ -489,6 +507,38 @@ function render(data, srcSet, destSet) {
 
   // Filter destination columns
   let destIndices = destinations.map((d, i) => ({ d, i })).filter(x => destSet.has(x.d)).map(x => x.i);
+
+  // Sort rows
+  if (sortBy === 'name') {
+    filtered = [...filtered].sort((a, b) => a.source.localeCompare(b.source));
+  } else if (sortBy === 'name-desc') {
+    filtered = [...filtered].sort((a, b) => b.source.localeCompare(a.source));
+  } else if (sortBy === 'latency') {
+    filtered = [...filtered].sort((a, b) => avgLatency(a, destIndices) - avgLatency(b, destIndices));
+  } else if (sortBy === 'latency-desc') {
+    filtered = [...filtered].sort((a, b) => avgLatency(b, destIndices) - avgLatency(a, destIndices));
+  }
+
+  // Sort destination columns
+  if (sortBy === 'latency' || sortBy === 'latency-desc') {
+    const dir = sortBy === 'latency' ? 1 : -1;
+    destIndices = [...destIndices].sort((a, b) => {
+      let sumA = 0, cA = 0, sumB = 0, cB = 0;
+      for (const row of filtered) {
+        const va = row.values[a]; if (va !== null) { sumA += va; cA++; }
+        const vb = row.values[b]; if (vb !== null) { sumB += vb; cB++; }
+      }
+      const avgA = cA > 0 ? sumA / cA : Infinity;
+      const avgB = cB > 0 ? sumB / cB : Infinity;
+      return dir * (avgA - avgB);
+    });
+  } else {
+    destIndices = [...destIndices].sort((a, b) =>
+      sortBy === 'name-desc'
+        ? destinations[b].localeCompare(destinations[a])
+        : destinations[a].localeCompare(destinations[b])
+    );
+  }
 
   // Build table
   let html = '<table><thead><tr><th class="corner">Source &#8594; Dest</th>';
@@ -515,6 +565,7 @@ function render(data, srcSet, destSet) {
 // --- Init ---
 const data = parseCSV(CSV);
 const geoSel = document.getElementById('geoFilter');
+const sortSel = document.getElementById('sortOrder');
 
 const srcMS = createMultiSelect(
   document.getElementById('srcToggle'), document.getElementById('srcPanel'),
@@ -535,8 +586,10 @@ const params = new URLSearchParams(window.location.search);
 const initGeo = params.get('geo') || '__all__';
 const initSrc = params.get('source') ? params.get('source').split(',') : null;
 const initDest = params.get('dest') ? params.get('dest').split(',') : null;
+const initSort = params.get('sort') || 'name';
 
 if ([...geoSel.options].some(o => o.value === initGeo)) geoSel.value = initGeo;
+if ([...sortSel.options].some(o => o.value === initSort)) sortSel.value = initSort;
 
 function rebuildDropdowns(preselectSrc, preselectDest) {
   const geo = geoSel.value;
@@ -552,6 +605,7 @@ rebuildDropdowns(initSrc, initDest);
 function syncURL() {
   const url = new URL(window.location);
   const g = geoSel.value;
+  const s = sortSel.value;
   const srcSel = srcMS.getSelected();
   const dstSel = destMS.getSelected();
   const srcAll = srcSel.size === srcMS.getItems().length;
@@ -559,11 +613,12 @@ function syncURL() {
   if (g !== '__all__') url.searchParams.set('geo', g); else url.searchParams.delete('geo');
   if (!srcAll) url.searchParams.set('source', [...srcSel].join(',')); else url.searchParams.delete('source');
   if (!dstAll) url.searchParams.set('dest', [...dstSel].join(',')); else url.searchParams.delete('dest');
+  if (s !== 'name') url.searchParams.set('sort', s); else url.searchParams.delete('sort');
   history.replaceState(null, '', url);
 }
 
 function update() {
-  render(data, srcMS.getSelected(), destMS.getSelected());
+  render(data, srcMS.getSelected(), destMS.getSelected(), sortSel.value);
   syncURL();
 }
 
@@ -571,6 +626,7 @@ geoSel.addEventListener('change', () => {
   rebuildDropdowns(null, null);
   update();
 });
+sortSel.addEventListener('change', update);
 
 // Initial render
 document.getElementById('loading').style.display = 'none';
