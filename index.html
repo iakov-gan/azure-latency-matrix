@@ -31,29 +31,130 @@
   }
   .controls {
     display: flex;
-    gap: 16px;
-    align-items: center;
+    gap: 12px;
+    align-items: flex-start;
     flex-wrap: wrap;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     background: var(--surface);
-    padding: 12px 16px;
+    padding: 10px 14px;
     border-radius: 8px;
     border: 1px solid var(--border);
   }
-  .controls label {
-    font-size: 0.85rem;
-    color: #a6adc8;
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
-  .controls select, .controls input {
+  .control-group label {
+    font-size: 0.75rem;
+    color: #a6adc8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .controls select {
     background: var(--bg);
     color: var(--text);
     border: 1px solid var(--border);
     border-radius: 4px;
     padding: 6px 10px;
     font-size: 0.85rem;
+    min-width: 170px;
   }
-  .controls select { min-width: 200px; }
-  .controls input[type="text"] { min-width: 180px; }
+  /* Multi-select dropdown */
+  .ms-wrap {
+    position: relative;
+    min-width: 200px;
+  }
+  .ms-toggle {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 28px 5px 8px;
+    font-size: 0.83rem;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    position: relative;
+    min-height: 30px;
+  }
+  .ms-toggle::after {
+    content: '▾';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.7rem;
+    color: #a6adc8;
+  }
+  .ms-toggle:hover { border-color: var(--accent); }
+  .ms-panel {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    min-width: 220px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0 0 6px 6px;
+    z-index: 100;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    max-height: 320px;
+    overflow: hidden;
+    display: none;
+    flex-direction: column;
+  }
+  .ms-panel.open { display: flex; }
+  .ms-search {
+    background: var(--surface);
+    color: var(--text);
+    border: none;
+    border-bottom: 1px solid var(--border);
+    padding: 7px 10px;
+    font-size: 0.83rem;
+    outline: none;
+    width: 100%;
+  }
+  .ms-search::placeholder { color: #585b70; }
+  .ms-actions {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .ms-actions button {
+    flex: 1;
+    background: transparent;
+    color: var(--accent);
+    border: none;
+    padding: 5px;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+  .ms-actions button:hover { background: #313244; }
+  .ms-list {
+    overflow-y: auto;
+    max-height: 240px;
+    padding: 2px 0;
+  }
+  .ms-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    user-select: none;
+  }
+  .ms-item:hover { background: #313244; }
+  .ms-item input[type="checkbox"] {
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .ms-item.hidden { display: none; }
   .legend {
     display: flex;
     gap: 14px;
@@ -159,27 +260,37 @@
 </p>
 
 <div class="controls">
-  <div>
-    <label for="geoFilter">Geography:</label>
+  <div class="control-group">
+    <label>Geography</label>
     <select id="geoFilter">
       <option value="__all__">All geographies</option>
       <option value="Americas">Americas</option>
       <option value="Europe">Europe</option>
       <option value="Asia Pacific">Asia Pacific</option>
-      <option value="Middle East & Africa">Middle East & Africa</option>
+      <option value="Middle East &amp; Africa">Middle East &amp; Africa</option>
     </select>
   </div>
-  <div>
-    <label for="srcFilter">Source region:</label>
-    <select id="srcFilter"><option value="__all__">All regions</option></select>
+  <div class="control-group">
+    <label>Source regions</label>
+    <div class="ms-wrap" id="srcWrap">
+      <button class="ms-toggle" id="srcToggle">All regions</button>
+      <div class="ms-panel" id="srcPanel">
+        <input class="ms-search" placeholder="Search regions…" id="srcSearch">
+        <div class="ms-actions"><button id="srcAll">All</button><button id="srcNone">None</button></div>
+        <div class="ms-list" id="srcList"></div>
+      </div>
+    </div>
   </div>
-  <div>
-    <label for="destFilter">Dest region:</label>
-    <select id="destFilter"><option value="__all__">All regions</option></select>
-  </div>
-  <div>
-    <label for="search">Search:</label>
-    <input type="text" id="search" placeholder="Filter regions…">
+  <div class="control-group">
+    <label>Dest regions</label>
+    <div class="ms-wrap" id="destWrap">
+      <button class="ms-toggle" id="destToggle">All regions</button>
+      <div class="ms-panel" id="destPanel">
+        <input class="ms-search" placeholder="Search regions…" id="destSearch">
+        <div class="ms-actions"><button id="destAll">All</button><button id="destNone">None</button></div>
+        <div class="ms-list" id="destList"></div>
+      </div>
+    </div>
   </div>
   <div class="legend">
     <span class="legend-item"><span class="legend-swatch" style="background:#1a5c2a"></span>&lt; 40</span>
@@ -301,51 +412,92 @@ function latencyClass(v) {
   return 'lat-darkred';
 }
 
-function render(data, sourceFilter, searchTerm, geoFilter, destFilter) {
+// --- Multi-select component ---
+function createMultiSelect(toggleEl, panelEl, searchEl, listEl, allBtn, noneBtn, onChange) {
+  let items = [];
+  let selected = new Set();
+
+  function populate(options, preselect) {
+    items = options;
+    selected = preselect ? new Set(preselect) : new Set(options);
+    renderList();
+    updateLabel();
+  }
+
+  function renderList() {
+    const q = searchEl.value.toLowerCase();
+    listEl.innerHTML = '';
+    items.forEach(name => {
+      const hidden = q && !name.toLowerCase().includes(q);
+      const div = document.createElement('div');
+      div.className = 'ms-item' + (hidden ? ' hidden' : '');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = selected.has(name);
+      cb.addEventListener('change', () => {
+        if (cb.checked) selected.add(name); else selected.delete(name);
+        updateLabel();
+        onChange();
+      });
+      const span = document.createElement('span');
+      span.textContent = name;
+      div.appendChild(cb);
+      div.appendChild(span);
+      div.addEventListener('click', e => { if (e.target !== cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); } });
+      listEl.appendChild(div);
+    });
+  }
+
+  function updateLabel() {
+    if (selected.size === 0) toggleEl.textContent = 'None selected';
+    else if (selected.size === items.length) toggleEl.textContent = 'All regions';
+    else if (selected.size <= 2) toggleEl.textContent = [...selected].join(', ');
+    else toggleEl.textContent = `${selected.size} of ${items.length} regions`;
+  }
+
+  function getSelected() {
+    return selected.size === items.length ? null : selected;
+  }
+
+  toggleEl.addEventListener('click', e => {
+    e.stopPropagation();
+    // Close other panels
+    document.querySelectorAll('.ms-panel.open').forEach(p => { if (p !== panelEl) p.classList.remove('open'); });
+    panelEl.classList.toggle('open');
+    if (panelEl.classList.contains('open')) searchEl.focus();
+  });
+
+  searchEl.addEventListener('input', renderList);
+  allBtn.addEventListener('click', () => { items.forEach(n => selected.add(n)); renderList(); updateLabel(); onChange(); });
+  noneBtn.addEventListener('click', () => { selected.clear(); renderList(); updateLabel(); onChange(); });
+
+  return { populate, getSelected, getItems: () => items, getSelectedSet: () => selected };
+}
+
+// Close panels on outside click
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ms-wrap')) {
+    document.querySelectorAll('.ms-panel.open').forEach(p => p.classList.remove('open'));
+  }
+});
+
+function render(data, srcSet, destSet) {
   const { destinations, rows } = data;
-  const search = searchTerm.toLowerCase();
 
-  // Build region set from geo filter
-  const geoSet = geoFilter !== '__all__'
-    ? new Set(GEO[geoFilter] || [])
-    : null;
-
-  // Filter rows
-  let filtered = rows;
-  if (sourceFilter !== '__all__') {
-    filtered = rows.filter(r => r.source === sourceFilter);
-  } else {
-    if (geoSet) filtered = filtered.filter(r => geoSet.has(r.source));
-  }
-  if (search) {
-    filtered = filtered.filter(r => r.source.toLowerCase().includes(search));
-  }
+  // Filter rows by source selection
+  let filtered = srcSet ? rows.filter(r => srcSet.has(r.source)) : rows;
 
   // Filter destination columns
-  let destIndices = destinations.map((_, i) => i);
-  if (destFilter !== '__all__') {
-    destIndices = destinations
-      .map((d, i) => ({ d, i }))
-      .filter(x => x.d === destFilter)
-      .map(x => x.i);
-  } else if (geoSet && sourceFilter === '__all__') {
-    destIndices = destinations
-      .map((d, i) => ({ d, i }))
-      .filter(x => geoSet.has(x.d))
-      .map(x => x.i);
-  }
-  if (search && destFilter === '__all__' && sourceFilter === '__all__' && !geoSet) {
-    destIndices = destinations
-      .map((d, i) => ({ d, i }))
-      .filter(x => x.d.toLowerCase().includes(search))
-      .map(x => x.i);
+  let destIndices;
+  if (destSet) {
+    destIndices = destinations.map((d, i) => ({ d, i })).filter(x => destSet.has(x.d)).map(x => x.i);
+  } else {
+    destIndices = destinations.map((_, i) => i);
   }
 
   // Build table
   let html = '<table><thead><tr><th class="corner">Source &#8594; Dest</th>';
-  for (const di of destIndices) {
-    html += `<th>${destinations[di]}</th>`;
-  }
+  for (const di of destIndices) html += `<th>${destinations[di]}</th>`;
   html += '</tr></thead><tbody>';
 
   for (const row of filtered) {
@@ -365,87 +517,63 @@ function render(data, sourceFilter, searchTerm, geoFilter, destFilter) {
     `Showing ${filtered.length} source region${filtered.length !== 1 ? 's' : ''} × ${destIndices.length} destinations`;
 }
 
-// Init
+// --- Init ---
 const data = parseCSV(CSV);
-const sel = document.getElementById('srcFilter');
-const destSel = document.getElementById('destFilter');
-const searchInput = document.getElementById('search');
 const geoSel = document.getElementById('geoFilter');
+
+const srcMS = createMultiSelect(
+  document.getElementById('srcToggle'), document.getElementById('srcPanel'),
+  document.getElementById('srcSearch'), document.getElementById('srcList'),
+  document.getElementById('srcAll'), document.getElementById('srcNone'),
+  update
+);
+
+const destMS = createMultiSelect(
+  document.getElementById('destToggle'), document.getElementById('destPanel'),
+  document.getElementById('destSearch'), document.getElementById('destList'),
+  document.getElementById('destAll'), document.getElementById('destNone'),
+  update
+);
 
 // Read URL params
 const params = new URLSearchParams(window.location.search);
 const initGeo = params.get('geo') || '__all__';
-const initSource = params.get('source') || '__all__';
-const initDest = params.get('dest') || '__all__';
-const initSearch = params.get('q') || '';
+const initSrc = params.get('source') ? params.get('source').split(',') : null;
+const initDest = params.get('dest') ? params.get('dest').split(',') : null;
 
-// Set geo from URL
-if ([...geoSel.options].some(o => o.value === initGeo)) {
-  geoSel.value = initGeo;
-}
+if ([...geoSel.options].some(o => o.value === initGeo)) geoSel.value = initGeo;
 
-function updateRegionDropdown(selectEl, preserveValue) {
+function rebuildDropdowns() {
   const geo = geoSel.value;
   const geoSet = geo !== '__all__' ? new Set(GEO[geo] || []) : null;
-  selectEl.innerHTML = '<option value="__all__">All regions</option>';
-  data.destinations.forEach(d => {
-    if (!geoSet || geoSet.has(d)) {
-      const opt = document.createElement('option');
-      opt.value = d;
-      opt.textContent = d;
-      selectEl.appendChild(opt);
-    }
-  });
-  if (preserveValue && [...selectEl.options].some(o => o.value === preserveValue)) {
-    selectEl.value = preserveValue;
-  }
+  const srcRegions = data.rows.map(r => r.source).filter(r => !geoSet || geoSet.has(r));
+  const destRegions = data.destinations.filter(d => !geoSet || geoSet.has(d));
+  srcMS.populate(srcRegions, initSrc);
+  destMS.populate(destRegions, initDest);
 }
 
-function updateSourceDropdown(preserveValue) {
-  const geo = geoSel.value;
-  const geoSet = geo !== '__all__' ? new Set(GEO[geo] || []) : null;
-  sel.innerHTML = '<option value="__all__">All regions</option>';
-  data.rows.forEach(r => {
-    if (!geoSet || geoSet.has(r.source)) {
-      const opt = document.createElement('option');
-      opt.value = r.source;
-      opt.textContent = r.source;
-      sel.appendChild(opt);
-    }
-  });
-  if (preserveValue && [...sel.options].some(o => o.value === preserveValue)) {
-    sel.value = preserveValue;
-  }
-}
-
-// Populate dropdowns with geo filter applied, then set from URL
-updateSourceDropdown(initSource);
-updateRegionDropdown(destSel, initDest);
-searchInput.value = initSearch;
+rebuildDropdowns();
 
 function syncURL() {
   const url = new URL(window.location);
-  const g = geoSel.value, s = sel.value, d = destSel.value, q = searchInput.value;
+  const g = geoSel.value;
+  const srcSel = srcMS.getSelected();
+  const dstSel = destMS.getSelected();
   if (g !== '__all__') url.searchParams.set('geo', g); else url.searchParams.delete('geo');
-  if (s !== '__all__') url.searchParams.set('source', s); else url.searchParams.delete('source');
-  if (d !== '__all__') url.searchParams.set('dest', d); else url.searchParams.delete('dest');
-  if (q) url.searchParams.set('q', q); else url.searchParams.delete('q');
+  if (srcSel) url.searchParams.set('source', [...srcSel].join(',')); else url.searchParams.delete('source');
+  if (dstSel) url.searchParams.set('dest', [...dstSel].join(',')); else url.searchParams.delete('dest');
   history.replaceState(null, '', url);
 }
 
 function update() {
-  render(data, sel.value, searchInput.value, geoSel.value, destSel.value);
+  render(data, srcMS.getSelected(), destMS.getSelected());
   syncURL();
 }
 
 geoSel.addEventListener('change', () => {
-  updateSourceDropdown();
-  updateRegionDropdown(destSel);
+  rebuildDropdowns();
   update();
 });
-sel.addEventListener('change', update);
-destSel.addEventListener('change', update);
-searchInput.addEventListener('input', update);
 
 // Initial render
 document.getElementById('loading').style.display = 'none';
