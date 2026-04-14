@@ -174,6 +174,10 @@
     <select id="srcFilter"><option value="__all__">All regions</option></select>
   </div>
   <div>
+    <label for="destFilter">Dest region:</label>
+    <select id="destFilter"><option value="__all__">All regions</option></select>
+  </div>
+  <div>
     <label for="search">Search:</label>
     <input type="text" id="search" placeholder="Filter regions…">
   </div>
@@ -297,7 +301,7 @@ function latencyClass(v) {
   return 'lat-darkred';
 }
 
-function render(data, sourceFilter, searchTerm, geoFilter) {
+function render(data, sourceFilter, searchTerm, geoFilter, destFilter) {
   const { destinations, rows } = data;
   const search = searchTerm.toLowerCase();
 
@@ -319,13 +323,18 @@ function render(data, sourceFilter, searchTerm, geoFilter) {
 
   // Filter destination columns
   let destIndices = destinations.map((_, i) => i);
-  if (geoSet && sourceFilter === '__all__') {
+  if (destFilter !== '__all__') {
+    destIndices = destinations
+      .map((d, i) => ({ d, i }))
+      .filter(x => x.d === destFilter)
+      .map(x => x.i);
+  } else if (geoSet && sourceFilter === '__all__') {
     destIndices = destinations
       .map((d, i) => ({ d, i }))
       .filter(x => geoSet.has(x.d))
       .map(x => x.i);
   }
-  if (search && sourceFilter === '__all__' && !geoSet) {
+  if (search && destFilter === '__all__' && sourceFilter === '__all__' && !geoSet) {
     destIndices = destinations
       .map((d, i) => ({ d, i }))
       .filter(x => x.d.toLowerCase().includes(search))
@@ -359,6 +368,7 @@ function render(data, sourceFilter, searchTerm, geoFilter) {
 // Init
 const data = parseCSV(CSV);
 const sel = document.getElementById('srcFilter');
+const destSel = document.getElementById('destFilter');
 const searchInput = document.getElementById('search');
 const geoSel = document.getElementById('geoFilter');
 
@@ -366,11 +376,29 @@ const geoSel = document.getElementById('geoFilter');
 const params = new URLSearchParams(window.location.search);
 const initGeo = params.get('geo') || '__all__';
 const initSource = params.get('source') || '__all__';
+const initDest = params.get('dest') || '__all__';
 const initSearch = params.get('q') || '';
 
 // Set geo from URL
 if ([...geoSel.options].some(o => o.value === initGeo)) {
   geoSel.value = initGeo;
+}
+
+function updateRegionDropdown(selectEl, preserveValue) {
+  const geo = geoSel.value;
+  const geoSet = geo !== '__all__' ? new Set(GEO[geo] || []) : null;
+  selectEl.innerHTML = '<option value="__all__">All regions</option>';
+  data.destinations.forEach(d => {
+    if (!geoSet || geoSet.has(d)) {
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = d;
+      selectEl.appendChild(opt);
+    }
+  });
+  if (preserveValue && [...selectEl.options].some(o => o.value === preserveValue)) {
+    selectEl.value = preserveValue;
+  }
 }
 
 function updateSourceDropdown(preserveValue) {
@@ -385,35 +413,38 @@ function updateSourceDropdown(preserveValue) {
       sel.appendChild(opt);
     }
   });
-  // Restore value if it still exists in options
   if (preserveValue && [...sel.options].some(o => o.value === preserveValue)) {
     sel.value = preserveValue;
   }
 }
 
-// Populate source dropdown (with geo filter applied), then set source from URL
+// Populate dropdowns with geo filter applied, then set from URL
 updateSourceDropdown(initSource);
+updateRegionDropdown(destSel, initDest);
 searchInput.value = initSearch;
 
 function syncURL() {
   const url = new URL(window.location);
-  const g = geoSel.value, s = sel.value, q = searchInput.value;
+  const g = geoSel.value, s = sel.value, d = destSel.value, q = searchInput.value;
   if (g !== '__all__') url.searchParams.set('geo', g); else url.searchParams.delete('geo');
   if (s !== '__all__') url.searchParams.set('source', s); else url.searchParams.delete('source');
+  if (d !== '__all__') url.searchParams.set('dest', d); else url.searchParams.delete('dest');
   if (q) url.searchParams.set('q', q); else url.searchParams.delete('q');
   history.replaceState(null, '', url);
 }
 
 function update() {
-  render(data, sel.value, searchInput.value, geoSel.value);
+  render(data, sel.value, searchInput.value, geoSel.value, destSel.value);
   syncURL();
 }
 
 geoSel.addEventListener('change', () => {
   updateSourceDropdown();
+  updateRegionDropdown(destSel);
   update();
 });
 sel.addEventListener('change', update);
+destSel.addEventListener('change', update);
 searchInput.addEventListener('input', update);
 
 // Initial render
