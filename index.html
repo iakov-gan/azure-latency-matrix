@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Azure Network Latency Matrix</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☁️</text></svg>">
 <style>
   :root {
     --bg: #1e1e2e;
@@ -162,6 +163,18 @@
     margin-left: auto;
     font-size: 0.8rem;
   }
+  .export-btn {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s;
+  }
+  .export-btn:hover { background: rgba(137,180,250,.15); }
   .legend-item {
     display: flex;
     align-items: center;
@@ -309,6 +322,7 @@
     <span class="legend-item"><span class="legend-swatch" style="background:#6c1a1a"></span>200–299</span>
     <span class="legend-item"><span class="legend-swatch" style="background:#4c0a0a"></span>&ge; 300</span>
   </div>
+  <button class="export-btn" id="exportCSV" title="Download filtered view as CSV">&#8615; CSV</button>
 </div>
 
 <div id="loading">Loading latency data&hellip;</div>
@@ -561,6 +575,28 @@ function render(data, srcSet, destSet, sortBy) {
   document.getElementById('tableWrap').innerHTML = html;
   document.getElementById('stats').textContent =
     `Showing ${filtered.length} source region${filtered.length !== 1 ? 's' : ''} × ${destIndices.length} destinations`;
+
+  // Store last render state for CSV export
+  window._lastRender = { filtered, destIndices, destinations };
+}
+
+function exportCSV() {
+  const { filtered, destIndices, destinations } = window._lastRender || {};
+  if (!filtered || !filtered.length) return;
+  let csv = 'Source,' + destIndices.map(di => destinations[di]).join(',') + '\n';
+  for (const row of filtered) {
+    csv += row.source;
+    for (const di of destIndices) {
+      csv += ',' + (row.values[di] === null ? '' : row.values[di]);
+    }
+    csv += '\n';
+  }
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'azure-latency-matrix.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 // --- Init ---
@@ -628,6 +664,7 @@ geoSel.addEventListener('change', () => {
   update();
 });
 sortSel.addEventListener('change', update);
+document.getElementById('exportCSV').addEventListener('click', exportCSV);
 
 // Initial render
 document.getElementById('loading').style.display = 'none';
