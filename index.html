@@ -543,16 +543,16 @@ const initDest = params.get('dest') ? params.get('dest').split(',') : null;
 
 if ([...geoSel.options].some(o => o.value === initGeo)) geoSel.value = initGeo;
 
-function rebuildDropdowns() {
+function rebuildDropdowns(preselectSrc, preselectDest) {
   const geo = geoSel.value;
   const geoSet = geo !== '__all__' ? new Set(GEO[geo] || []) : null;
   const srcRegions = data.rows.map(r => r.source).filter(r => !geoSet || geoSet.has(r));
   const destRegions = data.destinations.filter(d => !geoSet || geoSet.has(d));
-  srcMS.populate(srcRegions, initSrc);
-  destMS.populate(destRegions, initDest);
+  srcMS.populate(srcRegions, preselectSrc);
+  destMS.populate(destRegions, preselectDest);
 }
 
-rebuildDropdowns();
+rebuildDropdowns(initSrc, initDest);
 
 function syncURL() {
   const url = new URL(window.location);
@@ -571,7 +571,7 @@ function update() {
 }
 
 geoSel.addEventListener('change', () => {
-  rebuildDropdowns();
+  rebuildDropdowns(null, null);
   update();
 });
 
