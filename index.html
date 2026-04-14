@@ -456,7 +456,7 @@ function createMultiSelect(toggleEl, panelEl, searchEl, listEl, allBtn, noneBtn,
   }
 
   function getSelected() {
-    return selected.size === items.length ? null : selected;
+    return selected;
   }
 
   toggleEl.addEventListener('click', e => {
@@ -485,15 +485,10 @@ function render(data, srcSet, destSet) {
   const { destinations, rows } = data;
 
   // Filter rows by source selection
-  let filtered = srcSet ? rows.filter(r => srcSet.has(r.source)) : rows;
+  let filtered = srcSet.size > 0 ? rows.filter(r => srcSet.has(r.source)) : [];
 
   // Filter destination columns
-  let destIndices;
-  if (destSet) {
-    destIndices = destinations.map((d, i) => ({ d, i })).filter(x => destSet.has(x.d)).map(x => x.i);
-  } else {
-    destIndices = destinations.map((_, i) => i);
-  }
+  let destIndices = destinations.map((d, i) => ({ d, i })).filter(x => destSet.has(x.d)).map(x => x.i);
 
   // Build table
   let html = '<table><thead><tr><th class="corner">Source &#8594; Dest</th>';
@@ -559,9 +554,11 @@ function syncURL() {
   const g = geoSel.value;
   const srcSel = srcMS.getSelected();
   const dstSel = destMS.getSelected();
+  const srcAll = srcSel.size === srcMS.getItems().length;
+  const dstAll = dstSel.size === destMS.getItems().length;
   if (g !== '__all__') url.searchParams.set('geo', g); else url.searchParams.delete('geo');
-  if (srcSel) url.searchParams.set('source', [...srcSel].join(',')); else url.searchParams.delete('source');
-  if (dstSel) url.searchParams.set('dest', [...dstSel].join(',')); else url.searchParams.delete('dest');
+  if (!srcAll) url.searchParams.set('source', [...srcSel].join(',')); else url.searchParams.delete('source');
+  if (!dstAll) url.searchParams.set('dest', [...dstSel].join(',')); else url.searchParams.delete('dest');
   history.replaceState(null, '', url);
 }
 
