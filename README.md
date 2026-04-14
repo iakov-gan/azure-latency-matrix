@@ -56,6 +56,10 @@ git clone https://github.com/iakov-gan/azure-latency-matrix.git
 open index.html
 ```
 
+## Feedback
+
+Have suggestions or found a bug? [Open an issue](https://github.com/iakov-gan/azure-latency-matrix/issues) — feedback is welcome!
+
 ## License
 
 MIT
