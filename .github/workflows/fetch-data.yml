@@ -1,0 +1,32 @@
+name: Fetch latency data
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 06:00 UTC
+  workflow_dispatch:       # Manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch latency data from API
+        run: |
+          curl -s "https://func-latency-api-001.azurewebsites.net/api/latency" -o data/latency.json
+          echo "Records fetched: $(python3 -c "import json; print(len(json.load(open('data/latency.json'))))")"
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/latency.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update latency data $(date -u +%Y-%m-%d)"
+            git push
+          fi
