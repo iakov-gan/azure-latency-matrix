@@ -269,6 +269,32 @@
     color: #f38ba8;
     display: none;
   }
+  /* History chart tooltip */
+  #chartTip {
+    display: none;
+    position: fixed;
+    z-index: 200;
+    background: #1e1e2e;
+    border: 1px solid #585b70;
+    border-radius: 8px;
+    padding: 10px 12px 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.6);
+    pointer-events: none;
+  }
+  #chartTip .ct-title {
+    font-size: 0.8rem;
+    color: #89b4fa;
+    margin-bottom: 2px;
+    font-weight: 600;
+  }
+  #chartTip .ct-subtitle {
+    font-size: 0.7rem;
+    color: #a6adc8;
+    margin-bottom: 6px;
+  }
+  #chartTip canvas {
+    border-radius: 4px;
+  }
 </style>
 </head>
 <body>
@@ -335,6 +361,11 @@
 <div id="error"></div>
 <div class="table-wrap" id="tableWrap" style="display:none"></div>
 <div class="stats" id="stats"></div>
+<div id="chartTip">
+  <div class="ct-title" id="ctTitle"></div>
+  <div class="ct-subtitle" id="ctSubtitle"></div>
+  <canvas id="ctCanvas" width="280" height="120"></canvas>
+</div>
 
 <script>
 const API_URL = 'https://func-latency-api-001.azurewebsites.net/api/latency';
@@ -393,14 +424,22 @@ const GEO = {
 
 // Parse API JSON into matrix format
 function parseAPI(records) {
-  // Group by (source, dest), keep latest measurement
+  // Group by (source, dest), keep latest measurement + build history
   const latest = {};
+  const history = {};
   for (const r of records) {
     const key = r.source + '|' + r.destination;
     if (!latest[key] || r.timestamp > latest[key].timestamp) {
       latest[key] = r;
     }
+    if (!history[key]) history[key] = [];
+    const num = parseFloat(r.latency);
+    if (!isNaN(num)) {
+      history[key].push({ ts: new Date(r.timestamp), ms: num });
+    }
   }
+  // Sort history by time
+  for (const k in history) history[k].sort((a, b) => a.ts - b.ts);
 
   // Collect all regions
   const regionSet = new Set();
@@ -410,8 +449,10 @@ function parseAPI(records) {
   }
   const regionIds = [...regionSet].sort();
   const destinations = regionIds.map(displayName);
-  const destIndex = {};
-  regionIds.forEach((id, i) => destIndex[id] = i);
+
+  // Build reverse lookup: display name → internal id
+  const toInternal = {};
+  regionIds.forEach(id => toInternal[displayName(id)] = id);
 
   // Build rows
   const rows = regionIds.map(srcId => {
@@ -430,7 +471,7 @@ function parseAPI(records) {
   const earliest = timestamps[0] ? timestamps[0].slice(0, 10) : '?';
   const latestTs = timestamps.length ? timestamps[timestamps.length - 1].slice(0, 10) : '?';
 
-  return { destinations, rows, dateRange: { earliest, latest: latestTs }, count: records.length, pairs: Object.keys(latest).length };
+  return { destinations, rows, history, toInternal, dateRange: { earliest, latest: latestTs }, count: records.length, pairs: Object.keys(latest).length };
 }
 
 function latencyClass(v) {
@@ -566,7 +607,7 @@ function render(data, srcSet, destSet, sortBy) {
       const v = row.values[di];
       const cls = latencyClass(v);
       const display = v === null ? '\u2014' : v;
-      html += '<td class="' + cls + '" title="' + row.source + ' \u2192 ' + destinations[di] + ': ' + display + ' ms">' + display + '</td>';
+      html += '<td class="' + cls + '" data-src="' + row.source + '" data-dst="' + destinations[di] + '">' + display + '</td>';
     }
     html += '</tr>';
   }
@@ -598,6 +639,136 @@ function exportCSV() {
   a.click();
   URL.revokeObjectURL(a.href);
 }
+
+// --- History chart tooltip ---
+const chartTip = document.getElementById('chartTip');
+const ctTitle = document.getElementById('ctTitle');
+const ctSubtitle = document.getElementById('ctSubtitle');
+const ctCanvas = document.getElementById('ctCanvas');
+let chartTimer = null;
+
+function drawChart(points) {
+  const W = ctCanvas.width, H = ctCanvas.height;
+  const ctx = ctCanvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  if (points.length < 2) {
+    ctx.fillStyle = '#585b70';
+    ctx.font = '12px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.fillText('Not enough data', W / 2, H / 2);
+    return;
+  }
+
+  const pad = { t: 8, r: 10, b: 22, l: 36 };
+  const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+
+  const vals = points.map(p => p.ms);
+  let minV = Math.min(...vals), maxV = Math.max(...vals);
+  if (minV === maxV) { minV -= 5; maxV += 5; }
+  const minT = points[0].ts.getTime(), maxT = points[points.length - 1].ts.getTime();
+  const rangeT = maxT - minT || 1;
+
+  function x(t) { return pad.l + ((t.getTime() - minT) / rangeT) * cw; }
+  function y(v) { return pad.t + ch - ((v - minV) / (maxV - minV)) * ch; }
+
+  // Grid lines
+  ctx.strokeStyle = '#313244';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 3; i++) {
+    const gy = pad.t + (ch / 3) * i;
+    ctx.beginPath(); ctx.moveTo(pad.l, gy); ctx.lineTo(W - pad.r, gy); ctx.stroke();
+  }
+
+  // Y-axis labels
+  ctx.fillStyle = '#585b70';
+  ctx.font = '9px Segoe UI';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 3; i++) {
+    const v = maxV - ((maxV - minV) / 3) * i;
+    ctx.fillText(Math.round(v), pad.l - 4, pad.t + (ch / 3) * i + 3);
+  }
+
+  // X-axis labels (first and last date)
+  ctx.textAlign = 'left';
+  ctx.fillText(points[0].ts.toLocaleDateString('en', { month: 'short', day: 'numeric' }), pad.l, H - 4);
+  ctx.textAlign = 'right';
+  ctx.fillText(points[points.length - 1].ts.toLocaleDateString('en', { month: 'short', day: 'numeric' }), W - pad.r, H - 4);
+
+  // Line
+  ctx.strokeStyle = '#89b4fa';
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    if (i === 0) ctx.moveTo(x(p.ts), y(p.ms));
+    else ctx.lineTo(x(p.ts), y(p.ms));
+  });
+  ctx.stroke();
+
+  // Fill under line
+  ctx.lineTo(x(points[points.length - 1].ts), pad.t + ch);
+  ctx.lineTo(x(points[0].ts), pad.t + ch);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(137,180,250,.1)';
+  ctx.fill();
+
+  // Dots
+  ctx.fillStyle = '#89b4fa';
+  points.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(x(p.ts), y(p.ms), 2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function showChart(cell, srcName, dstName) {
+  if (!data || !data.history || !data.toInternal) return;
+  const srcId = data.toInternal[srcName];
+  const dstId = data.toInternal[dstName];
+  if (!srcId || !dstId) return;
+  const points = data.history[srcId + '|' + dstId];
+  if (!points || points.length === 0) return;
+
+  ctTitle.textContent = srcName + ' \u2192 ' + dstName;
+  const avg = points.reduce((s, p) => s + p.ms, 0) / points.length;
+  ctSubtitle.textContent = points.length + ' measurements \u00b7 avg ' + avg.toFixed(1) + ' ms';
+  drawChart(points);
+
+  // Position near cell
+  const rect = cell.getBoundingClientRect();
+  let left = rect.right + 8;
+  let top = rect.top - 40;
+  // Keep on screen
+  if (left + 310 > window.innerWidth) left = rect.left - 310;
+  if (top + 180 > window.innerHeight) top = window.innerHeight - 185;
+  if (top < 5) top = 5;
+
+  chartTip.style.left = left + 'px';
+  chartTip.style.top = top + 'px';
+  chartTip.style.display = 'block';
+}
+
+function hideChart() {
+  chartTip.style.display = 'none';
+}
+
+// Delegate hover events on table cells
+document.getElementById('tableWrap').addEventListener('mouseover', e => {
+  const td = e.target.closest('td[data-src]');
+  if (!td) return;
+  clearTimeout(chartTimer);
+  chartTimer = setTimeout(() => {
+    showChart(td, td.dataset.src, td.dataset.dst);
+  }, 200);
+});
+document.getElementById('tableWrap').addEventListener('mouseout', e => {
+  const td = e.target.closest('td[data-src]');
+  if (td) {
+    clearTimeout(chartTimer);
+    hideChart();
+  }
+});
 
 // --- Init ---
 const geoSel = document.getElementById('geoFilter');
