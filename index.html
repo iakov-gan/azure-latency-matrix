@@ -295,6 +295,38 @@
   #chartTip canvas {
     border-radius: 4px;
   }
+  /* Region info tooltip */
+  #regionTip {
+    display: none;
+    position: fixed;
+    z-index: 200;
+    background: #1e1e2e;
+    border: 1px solid #585b70;
+    border-radius: 8px;
+    padding: 8px 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.6);
+    pointer-events: none;
+    max-width: 280px;
+  }
+  #regionTip .rt-name {
+    font-size: 0.85rem;
+    color: #89b4fa;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  #regionTip .rt-row {
+    font-size: 0.78rem;
+    color: #cdd6f4;
+    line-height: 1.5;
+  }
+  #regionTip .rt-row span {
+    color: #a6adc8;
+  }
+  #regionTip .rt-restricted {
+    font-size: 0.72rem;
+    color: #fab387;
+    margin-top: 4px;
+  }
 </style>
 </head>
 <body>
@@ -365,6 +397,11 @@
   <div class="ct-title" id="ctTitle"></div>
   <div class="ct-subtitle" id="ctSubtitle"></div>
   <canvas id="ctCanvas" width="280" height="120"></canvas>
+</div>
+<div id="regionTip">
+  <div class="rt-name" id="rtName"></div>
+  <div class="rt-row" id="rtInfo"></div>
+  <div class="rt-restricted" id="rtRestricted"></div>
 </div>
 
 <script>
@@ -639,6 +676,110 @@ function exportCSV() {
   a.click();
   URL.revokeObjectURL(a.href);
 }
+
+// --- Region metadata ---
+const REGION_META = {
+  'Australia Central':    { flag: '🇦🇺', country: 'Australia',       city: 'Canberra',       az: false, restricted: false },
+  'Australia East':       { flag: '🇦🇺', country: 'Australia',       city: 'New South Wales', az: true,  restricted: false },
+  'Australia Southeast':  { flag: '🇦🇺', country: 'Australia',       city: 'Victoria',       az: false, restricted: false },
+  'Austria East':         { flag: '🇦🇹', country: 'Austria',         city: 'Vienna',         az: true,  restricted: false },
+  'Belgium Central':      { flag: '🇧🇪', country: 'Belgium',         city: 'Brussels',       az: true,  restricted: false },
+  'Brazil South':         { flag: '🇧🇷', country: 'Brazil',          city: 'São Paulo',      az: true,  restricted: false },
+  'Canada Central':       { flag: '🇨🇦', country: 'Canada',          city: 'Toronto',        az: true,  restricted: false },
+  'Canada East':          { flag: '🇨🇦', country: 'Canada',          city: 'Quebec',         az: false, restricted: false },
+  'Central India':        { flag: '🇮🇳', country: 'India',           city: 'Pune',           az: true,  restricted: false },
+  'Central US':           { flag: '🇺🇸', country: 'United States',   city: 'Iowa',           az: true,  restricted: false },
+  'Chile Central':        { flag: '🇨🇱', country: 'Chile',           city: 'Santiago',       az: true,  restricted: false },
+  'East Asia':            { flag: '🇭🇰', country: 'Hong Kong SAR',   city: 'Hong Kong',      az: true,  restricted: false },
+  'East US':              { flag: '🇺🇸', country: 'United States',   city: 'Virginia',       az: true,  restricted: false },
+  'East US 2':            { flag: '🇺🇸', country: 'United States',   city: 'Virginia',       az: true,  restricted: false },
+  'France Central':       { flag: '🇫🇷', country: 'France',          city: 'Paris',          az: true,  restricted: false },
+  'Germany West Central': { flag: '🇩🇪', country: 'Germany',         city: 'Frankfurt',      az: true,  restricted: false },
+  'Indonesia Central':    { flag: '🇮🇩', country: 'Indonesia',       city: 'Jakarta',        az: true,  restricted: false },
+  'Israel Central':       { flag: '🇮🇱', country: 'Israel',          city: 'Israel',         az: true,  restricted: false },
+  'Italy North':          { flag: '🇮🇹', country: 'Italy',           city: 'Milan',          az: true,  restricted: false },
+  'Japan East':           { flag: '🇯🇵', country: 'Japan',           city: 'Tokyo, Saitama', az: true,  restricted: false },
+  'Japan West':           { flag: '🇯🇵', country: 'Japan',           city: 'Osaka',          az: true,  restricted: false },
+  'Korea Central':        { flag: '🇰🇷', country: 'Korea',           city: 'Seoul',          az: true,  restricted: false },
+  'Korea South':          { flag: '🇰🇷', country: 'Korea',           city: 'Busan',          az: false, restricted: false },
+  'Malaysia West':        { flag: '🇲🇾', country: 'Malaysia',        city: 'Kuala Lumpur',   az: true,  restricted: false },
+  'Mexico Central':       { flag: '🇲🇽', country: 'Mexico',          city: 'Querétaro',      az: true,  restricted: false },
+  'New Zealand North':    { flag: '🇳🇿', country: 'New Zealand',     city: 'Auckland',       az: true,  restricted: false },
+  'North Central US':     { flag: '🇺🇸', country: 'United States',   city: 'Illinois',       az: false, restricted: false },
+  'North Europe':         { flag: '🇮🇪', country: 'Ireland',         city: 'Dublin',         az: true,  restricted: false },
+  'Norway East':          { flag: '🇳🇴', country: 'Norway',          city: 'Oslo',           az: true,  restricted: false },
+  'Poland Central':       { flag: '🇵🇱', country: 'Poland',          city: 'Warsaw',         az: true,  restricted: false },
+  'Qatar Central':        { flag: '🇶🇦', country: 'Qatar',           city: 'Doha',           az: true,  restricted: false },
+  'South Africa North':   { flag: '🇿🇦', country: 'South Africa',    city: 'Johannesburg',   az: true,  restricted: false },
+  'South Central US':     { flag: '🇺🇸', country: 'United States',   city: 'Texas',          az: true,  restricted: false },
+  'South India':          { flag: '🇮🇳', country: 'India',           city: 'Chennai',        az: false, restricted: false },
+  'Southeast Asia':       { flag: '🇸🇬', country: 'Singapore',       city: 'Singapore',      az: true,  restricted: false },
+  'Spain Central':        { flag: '🇪🇸', country: 'Spain',           city: 'Madrid',         az: true,  restricted: false },
+  'Sweden Central':       { flag: '🇸🇪', country: 'Sweden',          city: 'Gävle',          az: true,  restricted: false },
+  'Switzerland North':    { flag: '🇨🇭', country: 'Switzerland',     city: 'Zurich',         az: true,  restricted: false },
+  'UAE North':            { flag: '🇦🇪', country: 'UAE',             city: 'Dubai',          az: true,  restricted: false },
+  'UK South':             { flag: '🇬🇧', country: 'United Kingdom',  city: 'London',         az: true,  restricted: false },
+  'UK West':              { flag: '🇬🇧', country: 'United Kingdom',  city: 'Cardiff',        az: false, restricted: false },
+  'West Central US':      { flag: '🇺🇸', country: 'United States',   city: 'Wyoming',        az: false, restricted: false },
+  'West Europe':          { flag: '🇳🇱', country: 'Netherlands',     city: 'Amsterdam',      az: true,  restricted: false },
+  'West India':           { flag: '🇮🇳', country: 'India',           city: 'Mumbai',         az: false, restricted: false },
+  'West US':              { flag: '🇺🇸', country: 'United States',   city: 'California',     az: false, restricted: false },
+  'West US 2':            { flag: '🇺🇸', country: 'United States',   city: 'Washington',     az: true,  restricted: false },
+  'West US 3':            { flag: '🇺🇸', country: 'United States',   city: 'Phoenix',        az: true,  restricted: false }
+};
+
+// --- Region info tooltip ---
+const regionTip = document.getElementById('regionTip');
+const rtName = document.getElementById('rtName');
+const rtInfo = document.getElementById('rtInfo');
+const rtRestricted = document.getElementById('rtRestricted');
+let regionTimer = null;
+
+function showRegionTip(el, name) {
+  const meta = REGION_META[name];
+  if (!meta) return;
+
+  rtName.textContent = meta.flag + '  ' + name;
+  rtInfo.innerHTML =
+    '<span>Location:</span> ' + meta.city + ', ' + meta.country + '<br>' +
+    '<span>Availability Zones:</span> ' + (meta.az ? '✅ Yes' : '❌ No');
+  rtRestricted.textContent = meta.restricted ? '⚠️ Restricted — requires access request' : '';
+  rtRestricted.style.display = meta.restricted ? 'block' : 'none';
+
+  const rect = el.getBoundingClientRect();
+  let left = rect.right + 8;
+  let top = rect.top;
+  if (left + 290 > window.innerWidth) left = rect.left - 290;
+  if (top + 80 > window.innerHeight) top = window.innerHeight - 85;
+  if (top < 5) top = 5;
+
+  regionTip.style.left = left + 'px';
+  regionTip.style.top = top + 'px';
+  regionTip.style.display = 'block';
+}
+
+function hideRegionTip() {
+  regionTip.style.display = 'none';
+}
+
+// Delegate hover on row headers (tbody th) and column headers (thead th)
+document.getElementById('tableWrap').addEventListener('mouseover', e => {
+  const th = e.target.closest('th');
+  if (!th || th.classList.contains('corner')) return;
+  // Only for region headers, not the corner cell
+  const name = th.textContent.trim();
+  if (REGION_META[name]) {
+    clearTimeout(regionTimer);
+    regionTimer = setTimeout(() => showRegionTip(th, name), 150);
+  }
+});
+document.getElementById('tableWrap').addEventListener('mouseout', e => {
+  const th = e.target.closest('th');
+  if (th) {
+    clearTimeout(regionTimer);
+    hideRegionTip();
+  }
+});
 
 // --- History chart tooltip ---
 const chartTip = document.getElementById('chartTip');
