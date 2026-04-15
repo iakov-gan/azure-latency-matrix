@@ -741,7 +741,7 @@ function showRegionTip(el, name) {
 
   rtName.textContent = name;
   rtInfo.innerHTML =
-    '<span>Location:</span> ' + meta.flag + ' ' + meta.city + ', ' + meta.country + '<br>' +
+    '<span>Location:</span> ' + meta.city + ', ' + meta.country + '<br>' +
     '<span>Availability Zones:</span> ' + (meta.az ? '✅ Yes' : '❌ No');
   rtRestricted.textContent = meta.restricted ? '⚠️ Restricted — requires access request' : '';
   rtRestricted.style.display = meta.restricted ? 'block' : 'none';
