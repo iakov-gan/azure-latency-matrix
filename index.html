@@ -664,7 +664,7 @@ function drawChart(points) {
   const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
 
   const vals = points.map(p => p.ms);
-  let minV = Math.min(...vals), maxV = Math.max(...vals);
+  let minV = 0, maxV = Math.max(...vals);
   if (minV === maxV) { minV -= 5; maxV += 5; }
   const minT = points[0].ts.getTime(), maxT = points[points.length - 1].ts.getTime();
   const rangeT = maxT - minT || 1;
